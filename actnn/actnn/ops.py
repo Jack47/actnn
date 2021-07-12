@@ -73,12 +73,17 @@ def dequantize_and_unpack(data, shape, bits, scale, mn):
         data = unpack_func(data, bits, scale, mn, N, num_features // group_size, group_size)
     return data
 
-
+# 问题： input_groups 是直接分为 256 ，并不是说看值域来决定分到哪个桶
+## input_groups, q_bits, q_min, q_max
+## input_groups: 计算出这一波 input [batchsize][维度][各维度数据] 分为 groups (default 256) 之后，而且每个group里的feature 数据
+# q_bits: 各自用多少 bit 量化，这个是陪死的，2或者8
+# q_min: 量化前的最小值
+# q_max: 最大值是多少
 def no_scheme_compute_quantization_bits(input):
     N = input.shape[0]
-    D = input.shape[1]
-    input_flatten = input.view(N, -1)
-    num_features = input_flatten.shape[1]
+    D = input.shape[1] # feature 有几个维度，一般都是三
+    input_flatten = input.view(N, -1) # 拉平成 N 个数据加一个维度
+    num_features = input_flatten.shape[1] # 和 D 啥区别？是指拉平后， feature 的数量？就是原始的 pixels * 3维
     num_pixels = num_features // D
 
     # Compute min, max by groups
@@ -89,7 +94,8 @@ def no_scheme_compute_quantization_bits(input):
         input_flatten = torch.cat([input_flatten,
                                    torch.zeros([N, delta], dtype=input.dtype, device=input.device)], 1)
 
-    input_groups = input_flatten.view(-1, config.group_size)
+    input_groups = input_flatten.view(-1, config.group_size) # 拉平为二维：每 256 (group_size) 个一组，第一维是说有多少组
+    ## 返回的min/max值，貌似是 [N],  所以也是 sample 级别的，而非 sample 里某个 dimension 的
     mn, mx = ext_minimax.minimax(input_groups)
 
     b = config.activation_compression_bits[0]

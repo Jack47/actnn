@@ -19,7 +19,7 @@ __device__ __inline__ c10::Half __shfl_sync(const unsigned mask, const c10::Half
   return __shfl_sync(mask, var_, delta, width);
 }
 
-
+// 这个 data 是几维的？推测二维
 template <typename scalar_t>
 __global__ void minimax_cuda_kernel(const scalar_t* __restrict__ data,
                                     scalar_t* __restrict__ min,
@@ -31,14 +31,16 @@ __global__ void minimax_cuda_kernel(const scalar_t* __restrict__ data,
   min_val = 1e30;
 
   for (int64_t k1_outer = 0; k1_outer < D / 32; ++k1_outer) {
+    // std::max 是从 data[i][][] 里获取最大值？
     max_val = std::max(max_val, data[blockIdx.x * D + k1_outer * 32 + threadIdx.x]);
     min_val = std::min(min_val, data[blockIdx.x * D + k1_outer * 32 + threadIdx.x]);
   }
 
   unsigned int mask;
   scalar_t max_val_t, min_val_t;
-  mask = __activemask();
+  mask = __activemask(); // 当前 warp 中有哪些线程处于活动状态
 
+  // 貌似下面是分5次，把32个方块的 max 一步步求出来？
   max_val_t = __shfl_down_sync(mask, max_val, 16, 32);
   max_val = std::max(max_val, max_val_t);
   max_val_t = __shfl_down_sync(mask, max_val, 8, 32);
