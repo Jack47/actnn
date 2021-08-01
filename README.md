@@ -18,6 +18,7 @@ The increasing size of neural network models has been critical for improvements 
 ```
 torch>=1.7.1
 torchvision>=0.8.2
+g++ >= 5.0 # to be compatible with torch 1.7.1
 ```
 
 - Build
